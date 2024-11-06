@@ -46,7 +46,9 @@ class SpatialEncoding(nn.Module):
         :param embedding_size: dimension of node embedding vector
         """
         super().__init__()
-
+        self.num_heads = num_heads
+        self.embedding_size = embedding_size
+        
         self.means = nn.Parameter(torch.randn(self.num_heads))
         self.stds = nn.Parameter(torch.randn(self.num_heads))
         self.weights_dist = nn.Parameter(torch.randn(2 * self.embedding_size + 1))
