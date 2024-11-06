@@ -60,7 +60,7 @@ class Graphormer(nn.Module):
 
         self.spatial_encoding = SpatialEncoding(
             num_heads=num_heads_spatial,
-            encoding_size=self.node_dim
+            embedding_size=self.node_dim
         )
 
         self.layers = nn.ModuleList([
