@@ -3,10 +3,6 @@ from typing import Tuple
 import torch
 from torch import nn
 from torch_geometric.utils import degree
-import logging
-
-logging.basicConfig(level=logging.INFO) 
-logger = logging.getLogger(__name__)
 
 def decrease_to_max_value(x, max_value):
     x[x > max_value] = max_value
@@ -264,4 +260,3 @@ class GraphormerEncoderLayer(nn.Module):
         x_new = self.ff(self.ln_2(x_prime)) + x_prime
 
         return x_new
-    
