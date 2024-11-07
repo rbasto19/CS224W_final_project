@@ -75,7 +75,7 @@ class SpatialEncoding(nn.Module):
         concats = torch.cat((x1.expand(N, N, D), distances.unsqueeze(-1), x0.expand(N, N, D)), dim=-1)
         concats = concats.reshape(N ** 2, 2 * D + 1) @ self.weights_dist
         spatial_matrix = concats.reshape(N, N)
-        spatial_matrix = torch.exp((spatial_matrix - self.means.reshape(-1, 1, 1)) ** 2 / (2 * self.stds ** 2))
+        spatial_matrix = torch.exp((spatial_matrix - self.means.reshape(-1, 1, 1)) ** 2 / (2 * self.stds.reshape(-1,1,1) ** 2))
         spatial_matrix = torch.mean(spatial_matrix, dim=0)  # mean pooling
 
         return spatial_matrix
