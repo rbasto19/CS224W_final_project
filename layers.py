@@ -3,6 +3,10 @@ from typing import Tuple
 import torch
 from torch import nn
 from torch_geometric.utils import degree
+import logging
+
+logging.basicConfig(level=logging.INFO) 
+logger = logging.getLogger(__name__)
 
 def decrease_to_max_value(x, max_value):
     x[x > max_value] = max_value
@@ -62,13 +66,14 @@ class SpatialEncoding(nn.Module):
         # NOTE: currently averaging each GBF head (mean pooling), but is there better approach?
                 (I couln't figure out what the dynaformer paper did)
         """
-        norms = torch.linalg.vector_norm(coords, ord=2, dim=1) ** 2
-        distances = torch.sqrt(norms - 2 * coords @ coords.mT + norms.mT)
+        norms = (torch.linalg.vector_norm(coords, ord=2, dim=1) ** 2).reshape(-1,1)
+        distances = torch.sqrt(norms - 2 * coords @ coords.T + norms.T)
+        
         x1 = x.unsqueeze(1)
         x0 = x.unsqueeze(0)
         N, D = x.shape
         concats = torch.cat((x1.expand(N, N, D), distances.unsqueeze(-1), x0.expand(N, N, D)), dim=-1)
-        concats = concats.reshape(N ** 2, 2 * D) @ self.weights_dist
+        concats = concats.reshape(N ** 2, 2 * D + 1) @ self.weights_dist
         spatial_matrix = concats.reshape(N, N)
         spatial_matrix = torch.exp((spatial_matrix - self.means.reshape(-1, 1, 1)) ** 2 / (2 * self.stds ** 2))
         spatial_matrix = torch.mean(spatial_matrix, dim=0)  # mean pooling
