@@ -38,8 +38,8 @@ class CentralityEncoding(nn.Module):
         x += self.z_in[in_degree] + self.z_out[out_degree]
 
         return x
-    
-class SpatialEncoding(nn.Module):
+# this spatial encoding with gaussians is Dynaformer-specific, and differs from Graphormer    
+class SpatialEncoding(nn.Module):  
     def __init__(self, num_heads: int, embedding_size: int):
         """
         :param num_heads: number of encoding heads in the GBF function
