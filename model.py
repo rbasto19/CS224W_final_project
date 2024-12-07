@@ -5,7 +5,7 @@ from torch import nn
 from torch_geometric.data import Data
 
 from CS224W_final_project.functional import shortest_path_distance, batched_shortest_path_distance
-from CS224W_final_project.layers import GraphormerEncoderLayer, CentralityEncoding, SpatialEncoding
+from CS224W_final_project.layers import GraphormerEncoderLayer, CentralityEncoding, SpatialEncoding, EdgeEncoding
 
 
 class Graphormer(nn.Module):
@@ -62,6 +62,11 @@ class Graphormer(nn.Module):
             num_heads=num_heads_spatial,
             embedding_size=self.node_dim
         )
+        self.edge_encoding = EdgeEncoding(self.edge_dim, self.max_path_distance)
+
+        # self.spatial_encoding = SpatialEncoding(
+        #     max_path_distance=max_path_distance,
+        # )
 
         self.layers = nn.ModuleList([
             GraphormerEncoderLayer(
@@ -85,20 +90,20 @@ class Graphormer(nn.Module):
 
         if type(data) == Data:
             ptr = None
-            node_paths, edge_paths = shortest_path_distance(data)
+            # node_paths, edge_paths = shortest_path_distance(data)
         else:
             ptr = data.ptr
-            node_paths, edge_paths = batched_shortest_path_distance(data)
-
+            # node_paths, edge_paths = batched_shortest_path_distance(data)
+        
         x = self.node_in_lin(x)
         edge_attr = self.edge_in_lin(edge_attr)
-
+        # edge_encoding = self.edge_encoding(x, edge_attr, edge_paths)
+        edge_encoding = torch.zeros((x.shape[0], x.shape[0]))
         x = self.centrality_encoding(x, edge_index)
         b = self.spatial_encoding(x, data.pos)
-
+        # b = self.spatial_encoding(x, node_paths)
+        ptr=None
         for layer in self.layers:
-            x = layer(x, edge_attr, b, edge_paths, ptr)
-
+            x = layer(x, b, edge_encoding, ptr)
         x = self.node_out_lin(x)
-
         return x

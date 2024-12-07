@@ -3,6 +3,7 @@ from typing import Tuple
 import torch
 from torch import nn
 from torch_geometric.utils import degree
+import numpy as np
 
 def decrease_to_max_value(x, max_value):
     x[x > max_value] = max_value
@@ -38,6 +39,7 @@ class CentralityEncoding(nn.Module):
         x += self.z_in[in_degree] + self.z_out[out_degree]
 
         return x
+    
 # this spatial encoding with gaussians is Dynaformer-specific, and differs from Graphormer    
 class SpatialEncoding(nn.Module):  
     def __init__(self, num_heads: int, embedding_size: int):
@@ -62,19 +64,60 @@ class SpatialEncoding(nn.Module):
         # NOTE: currently averaging each GBF head (mean pooling), but is there better approach?
                 (I couln't figure out what the dynaformer paper did)
         """
-        norms = (torch.linalg.vector_norm(coords, ord=2, dim=1) ** 2).reshape(-1,1)
-        distances = torch.sqrt(norms - 2 * coords @ coords.T + norms.T)
         
+        norms = (torch.linalg.vector_norm(coords, ord=2, dim=1) ** 2).reshape(-1,1)
+        # print((norms - 2 * coords @ coords.T + norms.T < 0).sum())
+        distances = torch.sqrt(torch.clamp(norms - 2 * coords @ coords.T + norms.T, min=0))
+        # print(norms)
+        # print(torch.isnan(norms).sum())
+        # print(distances)
+        # print(torch.isnan(distances).sum())
         x1 = x.unsqueeze(1)
         x0 = x.unsqueeze(0)
         N, D = x.shape
         concats = torch.cat((x1.expand(N, N, D), distances.unsqueeze(-1), x0.expand(N, N, D)), dim=-1)
         concats = concats.reshape(N ** 2, 2 * D + 1) @ self.weights_dist
         spatial_matrix = concats.reshape(N, N)
-        spatial_matrix = torch.exp((spatial_matrix - self.means.reshape(-1, 1, 1)) ** 2 / (2 * self.stds.reshape(-1,1,1) ** 2))
+        min = spatial_matrix.min()
+        max = spatial_matrix.max()
+        spatial_matrix = (spatial_matrix - min) / (max - min)
+        # print(spatial_matrix)
+        # print(torch.isnan(spatial_matrix).sum())
+        stds = self.stds.reshape(-1,1,1)
+        a = (2*np.pi) ** 0.5
+        spatial_matrix = (1 / (a * stds)) * torch.exp(-0.5 * (spatial_matrix - self.means.reshape(-1, 1, 1)) ** 2 / (stds ** 2))
+        # print(spatial_matrix)
+        # print(torch.isnan(spatial_matrix).sum())
         spatial_matrix = torch.mean(spatial_matrix, dim=0)  # mean pooling
-
+        # print(spatial_matrix)
         return spatial_matrix
+
+# class SpatialEncoding(nn.Module):
+#     def __init__(self, max_path_distance: int):
+#         """
+#         :param max_path_distance: max pairwise distance between nodes
+#         """
+#         super().__init__()
+#         self.max_path_distance = max_path_distance
+
+#         self.b = nn.Parameter(torch.randn(self.max_path_distance))
+
+#     def forward(self, x: torch.Tensor, paths) -> torch.Tensor:
+#         """
+#         :param x: node feature matrix
+#         :param paths: pairwise node paths
+#         :return: torch.Tensor, spatial Encoding matrix
+#         """
+#         spatial_matrix = torch.zeros((x.shape[0], x.shape[0])).to(next(self.parameters()).device)
+#         for src in paths:
+#             for dst in paths[src]:
+#                 spatial_matrix[src][dst] = self.b[min(len(paths[src][dst]), self.max_path_distance) - 1]
+
+#         return spatial_matrix
+
+
+# def dot_product(x1, x2) -> torch.Tensor:
+#     return (x1 * x2).sum(dim=1)
 
 class EdgeEncoding(nn.Module):
     def __init__(self, edge_dim: int, max_path_distance: int):
@@ -96,6 +139,10 @@ class EdgeEncoding(nn.Module):
         cij = torch.zeros((x.shape[0], x.shape[0])).to(next(self.parameters()).device)
         weights_inds = torch.arange(0, self.max_path_distance)
         # TODO: make this more efficient
+        # multiply edge_weights by edge_attrs corresponding to edges in path
+        # paths have to be all of max_length
+        # set last edge to be zero vector, so that paths that use less than max_path_dist have -1 idx as placeholder
+        # flatten, use index_select with edge_attr, reshape, multiply by edge_weights, sum, then mean
         for src in edge_paths:
             for dst in edge_paths[src]:
                 path_ij = edge_paths[src][dst][:self.max_path_distance]
@@ -105,15 +152,13 @@ class EdgeEncoding(nn.Module):
         return cij
 
 class GraphormerAttentionHead(nn.Module):
-    def __init__(self, dim_in: int, dim_q: int, dim_k: int, edge_dim: int, max_path_distance: int):
+    def __init__(self, dim_in: int, dim_q: int, dim_k: int):
         """
         :param dim_in: node feature matrix input number of dimension
         :param dim_q: query node feature matrix input number dimension
         :param dim_k: key node feature matrix input number of dimension
-        :param edge_dim: edge feature matrix number of dimension
         """
         super().__init__()
-        self.edge_encoding = EdgeEncoding(edge_dim, max_path_distance)
 
         self.q = nn.Linear(dim_in, dim_q)
         self.k = nn.Linear(dim_in, dim_k)
@@ -121,17 +166,15 @@ class GraphormerAttentionHead(nn.Module):
 
     def forward(self,
                 x: torch.Tensor,
-                edge_attr: torch.Tensor,
                 b: torch.Tensor,
-                edge_paths,
+                edge_encoding,
                 ptr=None) -> torch.Tensor:
         """
         :param query: node feature matrix
         :param key: node feature matrix
         :param value: node feature matrix
-        :param edge_attr: edge feature matrix
         :param b: spatial Encoding matrix
-        :param edge_paths: pairwise node paths in edge indexes
+        :param edge_encoding: edge encodings
         :param ptr: batch pointer that shows graph indexes in batch of graphs
         :return: torch.Tensor, node embeddings after attention operation
         """
@@ -152,7 +195,7 @@ class GraphormerAttentionHead(nn.Module):
         key = self.k(x)
         value = self.v(x)
 
-        c = self.edge_encoding(x, edge_attr, edge_paths)
+        c = edge_encoding
         a = self.compute_a(key, query, ptr)
         a = (a + b + c) * batch_mask_neg_inf
         softmax = torch.softmax(a, dim=-1) * batch_mask_zeros
@@ -173,7 +216,7 @@ class GraphormerAttentionHead(nn.Module):
 
 # FIX: PyG attention instead of regular attention, due to specificity of GNNs
 class GraphormerMultiHeadAttention(nn.Module):
-    def __init__(self, num_heads: int, dim_in: int, dim_q: int, dim_k: int, edge_dim: int, max_path_distance: int):
+    def __init__(self, num_heads: int, dim_in: int, dim_q: int, dim_k: int):
         """
         :param num_heads: number of attention heads
         :param dim_in: node feature matrix input number of dimension
@@ -183,15 +226,14 @@ class GraphormerMultiHeadAttention(nn.Module):
         """
         super().__init__()
         self.heads = nn.ModuleList(
-            [GraphormerAttentionHead(dim_in, dim_q, dim_k, edge_dim, max_path_distance) for _ in range(num_heads)]
+            [GraphormerAttentionHead(dim_in, dim_q, dim_k) for _ in range(num_heads)]
         )
         self.linear = nn.Linear(num_heads * dim_k, dim_in)
 
     def forward(self,
                 x: torch.Tensor,
-                edge_attr: torch.Tensor,
                 b: torch.Tensor,
-                edge_paths,
+                edge_encoding,
                 ptr) -> torch.Tensor:
         """
         :param x: node feature matrix
@@ -203,7 +245,7 @@ class GraphormerMultiHeadAttention(nn.Module):
         """
         return self.linear(
             torch.cat([
-                attention_head(x, edge_attr, b, edge_paths, ptr) for attention_head in self.heads
+                attention_head(x, b, edge_encoding, ptr) for attention_head in self.heads
             ], dim=-1)
         )
 
@@ -227,8 +269,6 @@ class GraphormerEncoderLayer(nn.Module):
             dim_k=node_dim,
             dim_q=node_dim,
             num_heads=n_heads,
-            edge_dim=edge_dim,
-            max_path_distance=max_path_distance,
         )
         self.ln_1 = nn.LayerNorm(self.node_dim)
         self.ln_2 = nn.LayerNorm(self.node_dim)
@@ -241,9 +281,8 @@ class GraphormerEncoderLayer(nn.Module):
 
     def forward(self,
                 x: torch.Tensor,
-                edge_attr: torch.Tensor,
                 b: torch,
-                edge_paths,
+                edge_encoding,
                 ptr) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         h′(l) = MHA(LN(h(l−1))) + h(l−1)
@@ -256,7 +295,7 @@ class GraphormerEncoderLayer(nn.Module):
         :param ptr: batch pointer that shows graph indexes in batch of graphs
         :return: torch.Tensor, node embeddings after Graphormer layer operations
         """
-        x_prime = self.attention(self.ln_1(x), edge_attr, b, edge_paths, ptr) + x
+        x_prime = self.attention(self.ln_1(x), b, edge_encoding, ptr) + x
         x_new = self.ff(self.ln_2(x_prime)) + x_prime
 
         return x_new
