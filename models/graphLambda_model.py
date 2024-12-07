@@ -20,6 +20,8 @@ import model as dynaformer_model
 from utils import remove_random_edges
 from torch_geometric.data import Data, Batch
 
+# NOTE: this is the fused model
+
 class Net(torch.nn.Module):
     def __init__(self, input_dim_node, input_dim_edge, hidden_dim):
         super(Net, self).__init__()

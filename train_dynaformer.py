@@ -7,6 +7,10 @@ from torch_geometric.utils.convert import to_networkx
 import networkx as nx
 from networkx import all_pairs_shortest_path
 from sklearn.model_selection import train_test_split
+import sys
+import os
+current_dir = os.getcwd()
+sys.path.append(os.path.join(current_dir, 'models'))
 # NOTE: change this to the path for layers and model.py file with dynaformer
 import models.layers as layers
 import models.model as model
@@ -24,9 +28,7 @@ from utils import remove_random_edges
 
 writer = SummaryWriter(log_dir="logs/dynaformer"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
-device = torch.device("mps")
-
-with open('CS224W_final_project/refined-set-2020-5-5-5_test.pkl', 'rb') as f:
+with open('/Users/rbasto/Stanford projects/CS224W/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
   dataset = pickle.load(f)
 
 for i in range(len(dataset)):

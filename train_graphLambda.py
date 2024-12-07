@@ -3,6 +3,10 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import copy
 from os.path import join
+import sys
+import os
+current_dir = os.getcwd()
+sys.path.append(os.path.join(current_dir, 'models'))
 import random
 import torch
 import deepdish as dd
@@ -23,7 +27,7 @@ from datetime import datetime
 
 writer = SummaryWriter(log_dir="logs/lambda_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
-with open('CS224W_final_project/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
+with open('/Users/rbasto/Stanford projects/CS224W/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
   dataset = pickle.load(f)
 
 for i in range(len(dataset)):

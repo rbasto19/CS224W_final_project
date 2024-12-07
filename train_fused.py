@@ -3,6 +3,10 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import copy
 from os.path import join
+import sys
+import os
+current_dir = os.getcwd()
+sys.path.append(os.path.join(current_dir, 'models'))
 import random
 import torch
 import deepdish as dd
@@ -24,7 +28,7 @@ from datetime import datetime
 from models.graphLambda_model import Net
 writer = SummaryWriter(log_dir="logs/fused_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
-with open('CS224W_final_project/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
+with open('/Users/rbasto/Stanford projects/CS224W/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
   dataset = pickle.load(f)
 
 for i in range(len(dataset)):
@@ -36,7 +40,7 @@ train_loader = DataLoader(Subset(dataset, train_ids), batch_size=32, shuffle=Tru
 val_loader = DataLoader(Subset(dataset, val_ids), batch_size=32, shuffle=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-p = 0.9
+p = 0.9  # fraction of edges to drop
 loss_function = torch.nn.MSELoss()
 def train(model, train_loader,epoch,device,optimizer):
     model.train()
@@ -44,6 +48,8 @@ def train(model, train_loader,epoch,device,optimizer):
     error = 0
     batch_idx = 0
     for data in tqdm(train_loader):
+        # this is removing random edges to accelerate training 
+        # (and apparently increase expressiveness, as in DropGNN)
         batch = data.to_data_list()
         for i in range(len(batch)):
             batch[i] = remove_random_edges(batch[i], p)
