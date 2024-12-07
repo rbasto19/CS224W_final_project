@@ -15,7 +15,7 @@ from torch_geometric.data import Data
 from torch_geometric.data import InMemoryDataset #easily fits into cpu memory
 from torch.utils.data import Subset
 import pickle
-import model as dynaformer_model
+import models.model as dynaformer_model
 from utils import remove_random_edges
 from torch_geometric.data import Data, Batch
 from torch.utils.tensorboard import SummaryWriter
@@ -121,11 +121,11 @@ def train(model, train_loader,epoch,device,optimizer):
     error = 0
     batch_idx = 0
     for data in tqdm(train_loader):
-        # batch = data.to_data_list()
-        # for i in range(len(batch)):
-        #     batch[i] = remove_random_edges(batch[i], p)
-        # data = Batch.from_data_list(batch)
-        # data.to_data_list()
+        batch = data.to_data_list()
+        for i in range(len(batch)):
+            batch[i] = remove_random_edges(batch[i], p)
+        data = Batch.from_data_list(batch)
+        data.to_data_list()
         data = data.to(device)
         optimizer.zero_grad()
         loss = loss_function(model(data), data.y)

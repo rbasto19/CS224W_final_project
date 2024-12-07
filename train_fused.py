@@ -16,12 +16,12 @@ from torch_geometric.data import InMemoryDataset #easily fits into cpu memory
 from torch.utils.data import Subset
 import pickle
 # NOTE: change this to the path for model.py file with dynaformer
-import model as dynaformer_model
+import models.model as dynaformer_model
 from utils import remove_random_edges
 from torch_geometric.data import Data, Batch
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from graphLambda_model import Net
+from models.graphLambda_model import Net
 writer = SummaryWriter(log_dir="logs/fused_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
 with open('CS224W_final_project/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:

@@ -8,8 +8,8 @@ import networkx as nx
 from networkx import all_pairs_shortest_path
 from sklearn.model_selection import train_test_split
 # NOTE: change this to the path for layers and model.py file with dynaformer
-import CS224W_final_project.layers as layers
-import CS224W_final_project.model as model
+import models.layers as layers
+import models.model as model
 import pickle
 from tqdm import tqdm
 from torch_geometric.nn.pool import global_mean_pool
@@ -20,6 +20,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from copy import deepcopy
+from utils import remove_random_edges
 
 writer = SummaryWriter(log_dir="logs/dynaformer"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
@@ -30,17 +31,6 @@ with open('CS224W_final_project/refined-set-2020-5-5-5_test.pkl', 'rb') as f:
 
 for i in range(len(dataset)):
   dataset[i] = Data(**dataset[i].__dict__)  # allowing to use different pyg version
-
-transform = T.Compose([T.remove_isolated_nodes.RemoveIsolatedNodes()])
-def remove_random_edges(graph, p):    
-    graph = deepcopy(graph)
-    num_edges = int(graph.edge_index.size()[1] / 2)
-    keep_edge = (torch.rand(num_edges) > p).reshape(-1,1)
-    keep_edge = torch.hstack((keep_edge, keep_edge)).flatten()
-    graph.edge_index = graph.edge_index.T[keep_edge].T
-    graph.edge_attr = graph.edge_attr[keep_edge]
-    graph = transform(graph)
-    return graph
 
 graph_model = model.Graphormer(
     num_layers=2,

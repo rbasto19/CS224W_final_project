@@ -7,8 +7,8 @@ from torch_geometric.utils.convert import to_networkx
 import networkx as nx
 from networkx import all_pairs_shortest_path
 from sklearn.model_selection import train_test_split
-import layers as layers
-import model as model
+import models.layers as layers
+import models.model as model
 import pickle
 from tqdm import tqdm
 from torch_geometric.nn.pool import global_mean_pool
