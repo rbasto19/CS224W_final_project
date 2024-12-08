@@ -55,7 +55,7 @@ test_loader = DataLoader(Subset(dataset, test_ids), batch_size=8, shuffle=True)
 
 optimizer = torch.optim.AdamW(graph_model.parameters(), lr=1e-6)
 loss_function = torch.nn.L1Loss()
-p = 0.9
+p = 0.9  # fraction of edges to remove
 
 for epoch in range(10):
     graph_model.train()
