@@ -215,14 +215,7 @@ for epoch in range(1, 1001):
     if best_val_error is None or val_error <= best_val_error:
         best_val_error = val_error
         best_model = copy.deepcopy(model)
-        torch.save({
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'scheduler': scheduler.state_dict(),
-            'iteration': epoch,
-            'avg_val_loss': best_val_error,
-        }, 'model_checkpoints/graphLambda_hdim_{dim}_batch_{batch}.pt'.format(dim=hidden_dim, batch=batch_size))
-
+        torch.save(best_model.state_dict(), 'model_checkpoints/graphLambda_hdim_{dim}_batch_{batch}.pt'.format(dim=hidden_dim, batch=batch_size))
     print('Epoch: {:03d}, LR: {:.7f}, Train RMSE: {:.7f}, Validation RMSE: {:.7f}'
         .format(epoch, lr, train_error, val_error))
 print('leng of test errors = ', len(test_errors))

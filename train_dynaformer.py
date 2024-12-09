@@ -119,9 +119,5 @@ for epoch in range(100):
 
     if best_val_error is None or val_loss <= best_val_error:
         best_val_error = val_loss
-        torch.save({
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'iteration': epoch,
-            'avg_val_loss': best_val_error,
-        }, 'model_checkpoints/dynaformer_hdim_{dim}_batch_{batch}.pt'.format(dim=hidden_dim, batch=batch_size))
+        best_model = deepcopy(model)
+        torch.save(best_model.state_dict(), 'model_checkpoints/dynaformer_hdim_{dim}_batch_{batch}.pt'.format(dim=hidden_dim, batch=batch_size))
