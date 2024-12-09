@@ -28,8 +28,9 @@ import numpy as np
 
 writer = SummaryWriter(log_dir="logs/lambda_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
-MD = True
+MD = False
 if MD:
+    MD_str = '_MD'
     dataset = []
     with open('/Users/rbasto/Downloads/md-refined2019-5-5-5/md-refined2019-5-5-5_test.pkl', 'rb') as f:
         dataset_temp = pickle.load(f)
@@ -40,11 +41,12 @@ if MD:
             dataset.append(dataset_temp[i][j])
     
 else:
+    MD_str = ''
     with open('/Users/rbasto/Stanford projects/CS224W/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
         dataset = pickle.load(f)
     for i in range(len(dataset)):
         dataset[i] = Data(**dataset[i].__dict__)  # allowing to use different pyg version
-
+        dataset[i].x = dataset[i].x.to(torch.float32)
 
 class Net(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim):
@@ -202,6 +204,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
                                 factor=0.5, patience=2,
                                 min_lr=1e-6)
+
 for epoch in range(1, 1001):
     lr = scheduler.optimizer.param_groups[0]['lr']
     train_error = np.sqrt(train(model, train_loader,epoch,device,optimizer))
@@ -215,7 +218,7 @@ for epoch in range(1, 1001):
     if best_val_error is None or val_error <= best_val_error:
         best_val_error = val_error
         best_model = copy.deepcopy(model)
-        torch.save(best_model.state_dict(), 'model_checkpoints/graphLambda_hdim_{dim}_batch_{batch}.pt'.format(dim=hidden_dim, batch=batch_size))
+        torch.save(best_model.state_dict(), 'model_checkpoints/graphLambda{MD_str}_hdim_{dim}_batch_{batch}.pt'.format(MD_str=MD_str, dim=hidden_dim, batch=batch_size))
     print('Epoch: {:03d}, LR: {:.7f}, Train RMSE: {:.7f}, Validation RMSE: {:.7f}'
         .format(epoch, lr, train_error, val_error))
 print('leng of test errors = ', len(test_errors))

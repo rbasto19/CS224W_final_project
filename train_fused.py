@@ -33,6 +33,7 @@ writer = SummaryWriter(log_dir="logs/fused_"+datetime.now().strftime("%Y-%m-%d_%
 
 MD = True
 if MD:
+    MD_str = '_MD'
     dataset = []
     with open('/Users/rbasto/Downloads/md-refined2019-5-5-5/md-refined2019-5-5-5_test.pkl', 'rb') as f:
         dataset_temp = pickle.load(f)
@@ -43,11 +44,12 @@ if MD:
             dataset.append(dataset_temp[i][j])
     
 else:
+    MD_str = ''
     with open('/Users/rbasto/Stanford projects/CS224W/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
         dataset = pickle.load(f)
     for i in range(len(dataset)):
         dataset[i] = Data(**dataset[i].__dict__)  # allowing to use different pyg version
-
+        dataset[i].x = dataset[i].x.to(torch.float32)
 
 batch_size = 32
 train_ids, val_ids = train_test_split([i for i in range(len(dataset))], test_size=0.3, random_state=42)
@@ -141,7 +143,7 @@ for epoch in range(1, 1001):
     if best_val_error is None or val_error <= best_val_error:
         best_val_error = val_error
         best_model = deepcopy(model)
-        torch.save(best_model.state_dict(), 'model_checkpoints/fused_hdim_{dim}_batch_{batch}.pt'.format(dim=hidden_dim, batch=batch_size))
+        torch.save(best_model.state_dict(), 'model_checkpoints/fused{MD_str}_hdim_{dim}_batch_{batch}.pt'.format(MD_str=MD_str, dim=hidden_dim, batch=batch_size))
     print('Epoch: {:03d}, LR: {:.7f}, Train RMSE: {:.7f}, Validation RMSE: {:.7f}'
         .format(epoch, lr, train_error, val_error))
 print('leng of test errors = ', len(test_errors))

@@ -31,6 +31,7 @@ writer = SummaryWriter(log_dir="logs/dynaformer"+datetime.now().strftime("%Y-%m-
 
 MD = True
 if MD:
+    MD_str = '_MD'
     dataset = []
     with open('/Users/rbasto/Downloads/md-refined2019-5-5-5/md-refined2019-5-5-5_test.pkl', 'rb') as f:
         dataset_temp = pickle.load(f)
@@ -41,10 +42,12 @@ if MD:
             dataset.append(dataset_temp[i][j])
     
 else:
+    MD_str = ''
     with open('/Users/rbasto/Stanford projects/CS224W/refined-set-2020-5-5-5_train_val.pkl', 'rb') as f:
         dataset = pickle.load(f)
     for i in range(len(dataset)):
         dataset[i] = Data(**dataset[i].__dict__)  # allowing to use different pyg version
+        dataset[i].x = dataset[i].x.to(torch.float32)
 
 # NOTE: change these hyperparameters if necessary
 hidden_dim = 32
@@ -120,4 +123,4 @@ for epoch in range(100):
     if best_val_error is None or val_loss <= best_val_error:
         best_val_error = val_loss
         best_model = deepcopy(model)
-        torch.save(best_model.state_dict(), 'model_checkpoints/dynaformer_hdim_{dim}_batch_{batch}.pt'.format(dim=hidden_dim, batch=batch_size))
+        torch.save(best_model.state_dict(), 'model_checkpoints/dynaformer{MD_str}_hdim_{dim}_batch_{batch}.pt'.format(MD_str=MD_str, dim=hidden_dim, batch=batch_size))
